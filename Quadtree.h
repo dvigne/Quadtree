@@ -51,7 +51,7 @@ public:
   /// @fn Node(Point position, int occupancyValue, visited = false)
 	/// @brief Constructor for a Node Containing a Point and the Data Associated
 	/// @param position Nodes 2D position
-	/// @param occupancyValue Percent Confidence an Obstacle Exists at that Point
+	/// @param occupancyValue Percent Confidence an Obstacle Exists at that Point.
 	/// Value will be in the range `0-100` and unknown is `-1`
 	/// @param visited Have we Visited this Point Before.
 	/// Used to Assist With Irrevocability of the Path Planning Algorithm
@@ -92,10 +92,5 @@ public:
   Node* search(Point* point);
   bool contains(Point* point);
 };
-
-
-
-
-
 
 #endif /* end of include guard: __QUADTREE_H__ */
