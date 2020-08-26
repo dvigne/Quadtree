@@ -1,6 +1,8 @@
-#ifndef __QUADTREE_H__
-#define __QUADTREE_H__
-#include <exception>
+#pragma once
+#include <cstdint>
+#include <vector>
+#include <utility>
+#include <memory>
 
 /////////////////////////////////////////////////
 /// Out of Bounds Derived Structure
@@ -17,49 +19,73 @@ struct OutOfBoundsException : public std::exception {
 };
 
 /////////////////////////////////////////////////
-/// Point datastructure containing floating point XY Coordinates
-/// @author Derick Vigne
+/// @struct point
+/// @brief Simple datastructure to hold x and y
+/// coordinates
+///
+/// @fn point::point(float x, float y)
+/// @brief point struct constructor
+/// @param x X coordinate to assign
+/// @param y Y coordinate to assign
+///
+/// @fn bool point::operator==(const point& otherPoint)
+/// @brief Overloaded `==` operator for equivalency testing
+/// @param otherPoint Second point to test
+/// @returns `bool` True or false depending on equivalency
 /////////////////////////////////////////////////
+
+struct point {
+  float x; ///< X coordinate of the point
+  float y; ///< Y coordinate of the point
+  point(float x, float y) : x(x), y(y){};
+  bool operator==(const point& otherPoint) { return (x == otherPoint.x) && (y == otherPoint.y); };
+};
+
+class Node {
+private:
+  point position;
+  int8_t occupiedConfidence;
+  bool nodeVisited = false;
+
+public:
+  /////////////////////////////////////////////////
+  /// @fn Node::Node(point* position, int occupiedConfidence, bool visited = false)
+  /// @brief Node constructor
+  /// @param position point position of node
+  /// @param occupiedConfidence Percent confidence that a node is occupied by an obstacle.
+  /// Helps with optimizing the search algorithm.
+  /// ranges from `0-100` and `-1` if unknown
+  /// @param visited Optional setting to mark this node as visited
+  /////////////////////////////////////////////////
+  Node(point position, int occupiedConfidence, bool visited = false) : position(position), occupiedConfidence(occupiedConfidence), nodeVisited(visited){};
+  point getPosition();
+  int getOccupiedConfidence();
+  bool visited();
+};
 
 class Point {
 public:
   float x; ///< X Coordinate
   float y; ///< Y Coordinate
-
-  /////////////////////////////////////////////////
-  /// @fn Point(float x, float y)
-	/// @brief Used to create a point located at position XY
-	/// @param x X Coordinate of Point
-	/// @param y Y Coordinate of Point
-  /////////////////////////////////////////////////
-  Point(float x, float y) { this->x = x; this->y = y; }; ///< Initialization Constructor
 };
 
-/////////////////////////////////////////////////
-/// Node datastructure containing positional, occupancy, and search heuristics
-/// @author Derick Vigne
-/////////////////////////////////////////////////
-
-class Node {
+class Box {
 private:
-  Point* position; ///< Position of this node
-  int occupiedConfidence; ///< Percent confident that this given node is occupied by an obstacle
-  bool visited = false; ///< Have we visited this node before. Helps with the irrevocability of the search algorithm.
+  point topLeft;
+  point bottomRight;
 
 public:
   /////////////////////////////////////////////////
-  /// @fn Node(Point position, int occupancyValue, visited = false)
-	/// @brief Constructor for a Node Containing a Point and the Data Associated
-	/// @param position Nodes 2D position
-	/// @param occupancyValue Percent Confidence an Obstacle Exists at that Point.
-	/// Value will be in the range `0-100` and unknown is `-1`
-	/// @param visited Have we Visited this Point Before.
-	/// Used to Assist With Irrevocability of the Path Planning Algorithm
+  /// @fn Box::Box(point center, float halfDimension)
+  /// @brief Axis-aligned bounding box constructor
+  /// @param topLeft top-most left point of the bounding box
+  /// @param bottomRight bottom-most right point of the bounding box
   /////////////////////////////////////////////////
-  Node(Point position, int occupancyValue, visited = false) { this->position = position; this->occupiedConfidence = occupiedConfidence; this->visited = visited; };
-  Point* getPosition(); ///< Returns the Stored Position of the Node
-  int getOccupiedConfidence(); ///< Return the Stored Confidence Score
-  bool visited(); ///< Returns if Visited
+  Box(point topLeft, point bottomRight) : topLeft(topLeft), bottomRight(bottomRight){};
+  bool contains(point pt);
+  bool contains(Node node);
+  bool intersectsBox(Box box);
+  std::pair<point, point> getBounds();
 };
 
 /////////////////////////////////////////////////
@@ -68,29 +94,34 @@ public:
 /////////////////////////////////////////////////
 class Quadtree {
 private:
-  ///< Boundary information for intersection detection
-  Point* leftBoundary; ///< Top left boundary
-  Point* rightBoundary ///< Bottom Right Boundary
+  const uint8_t nodeCapacity = 4;
+  Box boundingBox;
 
-  Node* node; ///< Properties of current node
+  std::vector<Node> nodes;
 
-  ///< Quadrants
-  Quad* topLeft;
-  Quad* bottomLeft;
-  Quad* topRight;
-  Quad* bottomRight;
+  std::unique_ptr<Quadtree> topLeft;
+  std::unique_ptr<Quadtree> topRight;
+  std::unique_ptr<Quadtree> bottomLeft;
+  std::unique_ptr<Quadtree> bottomRight;
+
+  void subdivide(); ///< Split the node into four equal quadrants about the center
 
 public:
   /////////////////////////////////////////////////
-  /// @fn Quadtree::Quadtree(Point topLeft, Point bottomRight
-  /// @brief Constructor used to initialize the boundaries of the quadtree
-	/// @param topLeft Top Left Boundary Point
-	/// @param bottomRight Bottom Left Boundary Point
+  /// @fn Quadtree::Quadtree(Box boundingBox)
+  /// @brief Quadtree Constructor
+  /// @param boundingBox Set the bounding box for this quadrant of the quadtree
+  ///
+  /// @fn Quadtree::Quadtree(point topLeftPoint, point bottomRightPoint)
+  /// @brief Same as the Quadtree(Box boundingBox) constructor, except it will
+  /// build a bounding box out of the provided points
+  /// @param topLeftPoint The topmost left point of the bounding box
+  /// @param bottomRightPoint top bottom-most right point of the bounding box
   /////////////////////////////////////////////////
-  Quadtree(Point topLeft, Point bottomRight) { this->leftBoundary = topLeft; this->rightBoundary = bottomRight; };
-  void insert(Node* node);
-  Node* search(Point* point);
-  bool contains(Point* point);
+  Quadtree(Box boundingBox) : boundingBox(boundingBox){};
+  Quadtree(point topLeftPoint, point bottomRightPoint) : boundingBox(topLeftPoint, bottomRightPoint){};
+  bool insert(Node node);
+  Node search(point position);
+  Box getBoundingBox();
+  // std::vector<Node*> search(Box* range); // Only traversing by point for the moment....this will require some thought
 };
-
-#endif /* end of include guard: __QUADTREE_H__ */
